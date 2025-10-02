@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:mso="urn:schemas-microsoft-com:office:office" xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
+<head>
+  <meta charset="UTF-8" />
+  <title>Augmented Design Planner</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background-color: #f2fdf6;
+    }
+    h2 {
+      color: #3b6e3b;
+    }
+    input, select, button {
+      padding: 6px;
+      margin: 6px;
+      font-size: 16px;
+    }
+    .section {
+      border: 1px solid #ccc;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+    .description {
+      font-size: 14px;
+      color: #444;
+      margin-bottom: 10px;
+    }
+    .output {
+      font-size: 16px;
+      margin-top: 10px;
+      color: #003366;
+    }
+    .scenario {
+      background-color: #eef;
+      padding: 10px;
+      margin-top: 10px;
+      border-left: 5px solid #88a;
+    }
+    .reference {
+      font-size: 14px;
+      color: #444;
+      margin-top: 30px;
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 8px;
+    }
+  </style>
+
+<!--[if gte mso 9]><xml>
+<mso:CustomDocumentProperties>
+<mso:MediaServiceImageTags msdt:dt="string"></mso:MediaServiceImageTags>
+<mso:lcf76f155ced4ddcb4097134ff3c332f msdt:dt="string"></mso:lcf76f155ced4ddcb4097134ff3c332f>
+</mso:CustomDocumentProperties>
+</xml><![endif]-->
+</head>
+<body>
+
+<h2>🌿 Augmented Design Planner</h2>
+
+<div class="section">
+  <h3>1️⃣ Planting Capacity & Plot Information</h3>
+  <div class="description">
+    Define the total number of plants you can grow and the number of plants per plot. This determines the number of plots available for your experiment.
+  </div>
+  <label>Total number of plants available: </label>
+  <input type="number" id="totalPlants" placeholder="e.g. 1000" /><br>
+
+  <label>Plants per plot: </label>
+  <input type="number" id="plantsPerPlot" placeholder="e.g. 4" /><br>
+
+  <label>Number of blocks: </label>
+  <input type="number" id="numBlocks" placeholder="e.g. 6" /><br>
+</div>
+
+<div class="section">
+  <h3>2️⃣ Check Variety Setup</h3>
+  <div class="description">
+    Check varieties are repeated entries used to adjust for environmental variation. More checks and more blocks improve statistical power by increasing residual degrees of freedom.
+  </div>
+  <label>Number of check varieties: </label>
+  <input type="number" id="numChecks" placeholder="e.g. 3" /><br>
+</div>
+
+<div class="section">
+  <h3>📊 Design Summary</h3>
+  <button onclick="computeDesign()">Compute Design & Show Alternatives</button>
+  <button onclick="fillSuggested()">Use Suggested Example</button>
+  <div class="output" id="designSummary"></div>
+  <div id="scenarios"></div>
+</div>
+
+<div class="reference">
+  <h4>📚 References</h4>
+  <p>
+    • Lin, C. S. (1983). <em>The Analysis of Two-Stage Experiments for Comparing Varieties</em>. Biometrics, 39(2), 455–462.<br>
+    • Federer, W. T. (1956). <em>Augmented (or Heterogeneous) Experimental Designs</em>. Biometrics, 12(2), 279–301.<br>
+    • Piepho, H. P. (1998). <em>Empirical Best Linear Unbiased Prediction in Plant Breeding Trials</em>. Euphytica, 102(2), 143–146.
+  </p>
+  <p>
+    <strong>Note on degrees of freedom:</strong><br>
+    Residual degrees of freedom (DF) are computed as:<br>
+    <code>DF<sub>resid</sub> = (blocks × checks) − blocks − checks + 1</code><br>
+    The +1 accounts for the estimation of the grand mean (μ).
+  </p>
+</div>
+
+<script>
+function computeDesign() {
+  const totalPlants = parseInt(document.getElementById("totalPlants").value);
+  const plantsPerPlot = parseInt(document.getElementById("plantsPerPlot").value);
+  const blocks = parseInt(document.getElementById("numBlocks").value);
+  const checks = parseInt(document.getElementById("numChecks").value);
+
+  const out = document.getElementById("designSummary");
+  const scenarios = document.getElementById("scenarios");
+  scenarios.innerHTML = "";
+
+  if ([totalPlants, plantsPerPlot, blocks, checks].some(isNaN) || plantsPerPlot < 1) {
+    out.innerHTML = "❌ Please fill all fields correctly.";
+    return;
+  }
+
+  const totalPlots = Math.floor(totalPlants / plantsPerPlot);
+  const plotsPerBlock = Math.floor(totalPlots / blocks);
+  const testEntriesPerBlock = plotsPerBlock - checks;
+
+  if (testEntriesPerBlock < 0) {
+    out.innerHTML = `
+      ❌ <strong>Invalid configuration.</strong><br><br>
+      You are trying to assign <strong>${checks}</strong> check plots per block,<br>
+      but only <strong>${plotsPerBlock}</strong> plots are available per block.<br><br>
+      ➤ Reduce the number of check varieties or blocks<br>
+      ➤ Or increase total number of plants to create more plots<br>
+      <strong>Requirement:</strong> <code>plots per block ≥ number of checks</code>
+    `;
+    scenarios.innerHTML = "";
+    return;
+  }
+
+  const totalTestEntries = testEntriesPerBlock * blocks;
+  const usedPlots = (testEntriesPerBlock + checks) * blocks;
+  const df = (blocks * checks) - blocks - checks + 1;
+
+  out.innerHTML = `
+    ✅ <strong>Baseline Design:</strong><br><br>
+    • Total available plots: <strong>${totalPlots}</strong><br>
+    • Blocks: <strong>${blocks}</strong> | Checks: <strong>${checks}</strong><br>
+    • Plots per block: <strong>${plotsPerBlock}</strong><br>
+    • Test entries per block: <strong>${testEntriesPerBlock}</strong><br>
+    • Total test genotypes evaluated: <strong>${totalTestEntries}</strong><br>
+    • Residual degrees of freedom: <strong>${df}</strong><br>
+  `;
+
+  const altScenarios = [
+    { title: "More blocks (+2)", blocks: blocks + 2, checks: checks },
+    { title: "More checks (+1)", blocks: blocks, checks: checks + 1 },
+    { title: "Fewer checks (−1)", blocks: blocks, checks: Math.max(1, checks - 1) },
+    { title: "Fewer blocks (−1)", blocks: Math.max(2, blocks - 1), checks: checks }
+  ];
+
+  scenarios.innerHTML = "<h4>🔁 Alternative Scenarios Based on Your Setup</h4>";
+
+  altScenarios.forEach((s) => {
+    const altPlotsPerBlock = Math.floor(totalPlots / s.blocks);
+    const altTestEntriesPerBlock = altPlotsPerBlock - s.checks;
+    const altTotalTestEntries = altTestEntriesPerBlock * s.blocks;
+    const altDF = (s.blocks * s.checks) - s.blocks - s.checks + 1;
+    const isValid = altTestEntriesPerBlock >= 0;
+
+    const msg = isValid
+      ? `<strong>${s.title}</strong><br>
+         • Blocks: <strong>${s.blocks}</strong> | Checks: <strong>${s.checks}</strong><br>
+         • Test entries per block: <strong>${altTestEntriesPerBlock}</strong><br>
+         • Total test entries: <strong>${altTotalTestEntries}</strong><br>
+         • Residual DF: <strong>${altDF}</strong><br>`
+      : `<strong>${s.title}</strong><br>❌ Not enough space for test entries.`
+
+    const div = document.createElement("div");
+    div.className = "scenario";
+    div.innerHTML = msg;
+    scenarios.appendChild(div);
+  });
+}
+
+function fillSuggested() {
+  document.getElementById("totalPlants").value = 1000;
+  document.getElementById("plantsPerPlot").value = 4;
+  document.getElementById("numBlocks").value = 6;
+  document.getElementById("numChecks").value = 3;
+}
+</script>
+
+</body>
+</html>
